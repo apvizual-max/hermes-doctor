@@ -1,0 +1,61 @@
+# Hermes Doctor — ce intră în versionare
+#
+# Scopul: acest repo păstrează munca doctorului, NU starea de funcționare a
+# aplicației Hermes. Local e locul de lucru, GitHub primește doar ce merge.
+#
+# Regula e prin NEGARE, nu prin enumerare. La un proiect mare, pericolul nu e să
+# uiți un fișier — e să verși conținut în afară: `state.db` are 1,5 GB, `.env`
+# are chei, `whatsapp/session` are peste 20.000 de fișiere. Enumerarea nu se
+# întreține; negarea e corectă prin construcție.
+#
+# Git NU coboară într-un director interzis. Ca să redeschizi un fișier,
+# redeschizi și PĂRINTELE lui, chiar dacă pe acesta cazi înapoi imediat.
+# De aceea fiecare nivel e deschis explicit, în ordine.
+#
+# Verifică după orice schimbare:  git check-ignore -v <cale>
+
+# ── 1. Interzic tot ce există la rădăcină ────────────────────────────────
+/*
+
+# ── 2. Deschid ce e al doctorului ────────────────────────────────────────
+
+# Regula de negare trebuie versionată ea însăși. Altfel un clone nou ar veni
+# fără nicio regulă și ar urca tot ce nu e listat aici — adică exact secretaba.
+!/.gitignore
+
+# Rapoartele de stare ale proiectului Hermes Doctor
+!/Raport de stare Hermes Doctor*.md
+!/raport-archive/
+
+# Unealta doctorului: Bug-Monitor, gardianul, scripturile lui
+!/HERMES_OPTIMUS/
+/HERMES_OPTIMUS/*
+!/HERMES_OPTIMUS/CASA/
+/HERMES_OPTIMUS/CASA/*
+!/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/
+/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/*
+!/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/
+/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/**
+!/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/**
+
+# ── 3. Închid ce e volatil sau periculos, chiar dacă e deschis ───────────
+
+# PID-uri, lock-uri, ultima stare: se schimbă la fiecare secundă și n-ar
+# spune nimic într-un istoric.
+/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/logs/**
+/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/state/**
+
+# Niciodată bytecode sau secrete, nici dacă o regulă de mai sus le-ar deschide
+**/__pycache__/**
+*.pyc
+*.pyo
+.env
+*.env
+*.pem
+*.key
+*.p12
+state.db
+state.db-wal
+state.db-shm
+*.sqlite
+*.sqlite3

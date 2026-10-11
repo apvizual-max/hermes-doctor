@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPTIMUS Bug-Monitor &mdash; Hermes Ghost Path Guardrail</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --fg:#e6e8ee; --dim:#9aa3b2; --accent:#4da3ff; --ok:#2ecc71;
+    --warn:#f5a623; --bad:#e74c3c; --crit:#ff2d2d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.55 "Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif}
+  header{background:linear-gradient(180deg,#1b1f28,#14171e);border-bottom:1px solid var(--line);
+         padding:18px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+         position:sticky;top:0;z-index:10}
+  h1{font-size:19px;margin:0;font-weight:600;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:12.5px}
+  .spacer{flex:1}
+  .pill{padding:5px 13px;border-radius:999px;font-weight:600;font-size:12.5px;
+        border:1px solid transparent;white-space:nowrap}
+  .pill.ok{background:rgba(46,204,113,.15);color:var(--ok);border-color:rgba(46,204,113,.4)}
+  .pill.bad{background:rgba(231,76,60,.15);color:var(--bad);border-color:rgba(231,76,60,.45)}
+  .pill.idle{background:rgba(154,163,178,.12);color:var(--dim);border-color:rgba(154,163,178,.3)}
+  nav{display:flex;gap:4px;padding:0 24px;background:#14171e;border-bottom:1px solid var(--line);
+      position:sticky;top:63px;z-index:9;overflow-x:auto}
+  nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--dim);
+             padding:12px 16px;cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap}
+  nav button:hover{color:var(--fg)}
+  nav button.on{color:var(--accent);border-bottom-color:var(--accent)}
+  main{padding:22px 24px 60px;max-width:1500px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+         padding:18px;margin-bottom:18px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
+            margin:0 0 14px;font-weight:600}
+  .grid{display:grid;gap:14px}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px}
+  .card .k{color:var(--dim);font-size:11.5px;text-transform:uppercase;letter-spacing:.6px}
+  .card .v{font-size:20px;font-weight:600;margin-top:5px;word-break:break-all}
+  .card .v.sm{font-size:13px;font-weight:500}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.6px}
+  tr:last-child td{border-bottom:none}
+  code,pre{font-family:"Cascadia Mono",Consolas,"Courier New",monospace}
+  code{background:#0c0e12;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12.5px;
+       color:#9fd0ff;word-break:break-all}
+  pre{background:#0c0e12;border:1px solid var(--line);border-radius:8px;padding:14px;
+      overflow:auto;max-height:520px;font-size:12.5px;line-height:1.5;color:#cfd6e4}
+  button.act{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:7px;
+             padding:9px 15px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit}
+  button.act:hover{border-color:var(--accent);color:var(--accent)}
+  button.act.danger{border-color:rgba(231,76,60,.5);color:#ff8b7d}
+  button.act.primary{background:var(--accent);color:#08121f;border-color:var(--accent);font-weight:600}
+  .row{display:flex;gap:9px;flex-wrap:wrap}
+  .muted{color:var(--dim)}
+  .ev-DETECTED{color:var(--bad);font-weight:600}
+  .ev-CLEARED{color:var(--ok);font-weight:600}
+  .ev-FIXED{color:var(--accent);font-weight:600}
+  .ev-SCRUB,.ev-SELFTEST{color:var(--dim)}
+  .tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11.5px;
+       border:1px solid var(--line);color:var(--dim);margin:2px 4px 2px 0}
+  .tag.y{color:var(--ok);border-color:rgba(46,204,113,.4)}
+  .tag.n{color:var(--bad);border-color:rgba(231,76,60,.4)}
+  details{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:12px;background:var(--panel2)}
+  summary{cursor:pointer;font-weight:600;color:var(--accent)}
+  h3{font-size:15px;margin:22px 0 10px;color:#cdd6e4}
+  h4{font-size:13.5px;margin:16px 0 8px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  ul,ol{margin:8px 0;padding-left:22px}
+  li{margin:5px 0}
+  .banner{padding:13px 16px;border-radius:8px;margin-bottom:16px;font-size:13.5px}
+  .banner.ok{background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.35)}
+  .banner.bad{background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.45)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>OPTIMUS Bug-Monitor</h1>
+    <div class="sub">Hermes ghost-path guardrail &mdash; <span id="gen">loading&hellip;</span></div>
+  </div>
+  <div class="spacer"></div>
+  <div id="statusPill" class="pill idle">CHECKING</div>
+  <div id="daemonPill" class="pill idle">DAEMON &mdash;</div>
+  <button class="act" onclick="location.reload(true)">Refresh</button>
+</header>
+
+<nav>
+  <button class="on" data-t="status" onclick="tab('status')">Status</button>
+  <button data-t="logs" onclick="tab('logs')">Logs &amp; Reports</button>
+  <button data-t="control" onclick="tab('control')">Control</button>
+  <button data-t="doc" onclick="tab('doc')">Bug Documentation</button>
+  <button data-t="layout" onclick="tab('layout')">System Layout</button>
+</nav>
+
+<main>
+  <div id="banner"></div>
+
+  <!-- ================= STATUS ================= -->
+  <section id="t-status">
+    <div class="panel">
+      <h2>Live state</h2>
+      <div class="grid g4" id="cards"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Source-level guards (drive validation)</h2>
+      <p class="muted" style="margin-top:-6px;font-size:12.5px">
+        <code>hermes update</code> reverts source edits. The monitor re-applies these on demand
+        (<code>fix</code>) and the startup task re-checks them at every logon.
+      </p>
+      <table id="guardTable"></table>
+    </div>
+  </section>
+
+  <!-- ================= LOGS ================= -->
+  <section id="t-logs" class="hidden">
+    <div class="panel">
+      <h2>Event log &mdash; ring buffer (<span id="logCount">0</span>/<span id="logCap">50</span>)</h2>
+      <p class="muted" style="margin-top:-6px;font-size:12.5px">
+        The monitor scans every 5 minutes but writes an entry <strong>only when state changes</strong>.
+        Entry 51 evicts entry 1, so the log is always exactly the last 50 transitions.
+      </p>
+      <table id="logTable"></table>
+    </div>
+    <div class="panel">
+      <h2>Latest incident report</h2>
+      <pre id="reportBox">No report has been generated yet. A report is written whenever the
+monitor observes the ghost path appearing, changing, or being cleared.</pre>
+    </div>
+  </section>
+
+  <!-- ================= CONTROL ================= -->
+  <section id="t-control" class="hidden">
+    <div class="panel">
+      <h2>Manual control</h2>
+      <p class="muted" style="margin-top:-6px;font-size:12.5px">
+        Each button runs the corresponding <code>hermes_bug-monitor_sys.bat &lt;action&gt;</code>
+        command. The daemon picks up the new state on its next cycle.
+      </p>
+      <div class="row">
+        <button class="act primary" onclick="act('scan-once')">Scan now</button>
+        <button class="act" onclick="act('status')">Refresh status</button>
+        <button class="act" onclick="act('start')">Start daemon</button>
+        <button class="act" onclick="act('stop')">Stop daemon</button>
+        <button class="act danger" onclick="act('fix')">Fix it now (quarantine + re-apply guards)</button>
+        <button class="act danger" onclick="act('scrub-archives --apply')">Scrub archives (rewrite ghost paths)</button>
+        <button class="act" onclick="act('selftest')">Run selftest</button>
+        <button class="act" onclick="act('reset-log')">Reset log</button>
+        <button class="act" onclick="openBat()">Open launcher .bat</button>
+      </div>
+      <div id="ctrlOut" class="muted" style="margin-top:14px;font-size:12.5px">
+        Actions run in a separate console window (the .bat opens its own). Reopen this page
+        to see the result, or watch <code>logs/bug-monitor.log</code>.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>What each action does</h2>
+      <table>
+        <tr><th style="width:170px">Action</th><th>Effect</th></tr>
+        <tr><td><code>scan-once</code></td><td>One full scan. Logs and alerts only if the state changed.</td></tr>
+        <tr><td><code>fix</code></td><td>Moves any ghost tree into <code>reports/quarantine/</code> (a rename, not a delete), re-applies the source guards, scrubs live config, re-scans.</td></tr>
+        <tr><td><code>scrub-archives</code></td><td>Rewrites drive-less paths inside snapshots / <code>.bak</code> / <code>backups/</code> so a rollback cannot reinstate the bug. Skips knowledge directories and session transcripts.</td></tr>
+        <tr><td><code>reset-log</code></td><td>Clears the ring buffer and persisted state. Quarantined trees are preserved.</td></tr>
+        <tr><td><code>selftest</code></td><td>Verifies the monitor's own invariants against a scratch log; never touches the live log.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= DOC ================= -->
+  <section id="t-doc" class="hidden">
+    <div class="panel">
+      <h2>Bug documentation &mdash; the ghost path (<code>C:\c\Users\...</code>)</h2>
+
+      <h3>1. What it is</h3>
+      <p>
+        A <strong>ghost path</strong> is a POSIX/MSYS-spelled absolute path &mdash;
+        <code>/c/Users/apviz/AppData/Local</code> &mdash; consumed by native Windows code.
+        On Windows that string is <em>rooted</em> (<code>Path.is_absolute()</code> returns
+        <code>True</code>) but carries <strong>no drive</strong>. Every filesystem operation
+        beneath it therefore resolves against whatever drive happens to be current, which on this
+        machine is <code>C:</code>. The result is a duplicated-drive tree:
+      </p>
+      <pre>C:\c\Users\apviz\AppData\Local\hermes\...      &lt;-- 4.7 GB, 107,334 files</pre>
+      <p class="muted" style="font-size:12.5px">
+        Windows forbids a colon in a path component, so the literal <code>C:\C\Users</code> spelling
+        can never be created. The lowercase <code>C:\c\</code> form is the only possible artefact,
+        and the monitor probes for it.
+      </p>
+
+      <h3>2. Where the error came from</h3>
+      <p>
+        Not a typo. The operator's hypothesis was &ldquo;an added <code>C/</code>, probably caused
+        by a missing <code>:</code> in a command line.&rdquo; The mechanism is close but different:
+        a value was <em>authored correctly</em> and then <em>transcribed in MSYS spelling</em> by a
+        shell, and later trusted verbatim by Windows code.
+      </p>
+      <p>The poisoned value was <code>TELEGRAM_AGENT_HOME=/c/Users/apviz/.telegram-agent</code>.</p>
+      <ul>
+        <li>It appears in <strong>every</strong> archived config going back to at least
+            <strong>2026-09-17</strong> &mdash; 131 files inside the <code>HERMES_BACKUP</code>
+            restore point alone, and 135 more across <code>state-snapshots</code>,
+            <code>backups/config</code> and <code>*.bak</code> in the live install.</li>
+        <li>It is <strong>not</strong> a path Hermes invented. It is a path somebody wrote while
+            working in Git&nbsp;Bash / MSYS, where <code>/c/Users/...</code> is the correct and
+            normal spelling.</li>
+      </ul>
+
+      <h3>3. The source-level defect</h3>
+      <p>
+        <code>hermes_constants.py</code> built the Windows home with <strong>no drive validation</strong>:
+      </p>
+      <pre>local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
+base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
+return base / ("hermes" + suffix)</pre>
+      <p>Three call sites carried the identical pattern &mdash; all now fixed:</p>
+      <table>
+        <tr><th style="width:330px">File</th><th>Function</th><th style="width:210px">Consequence when poisoned</th></tr>
+        <tr><td><code>hermes_constants.py</code></td><td><code>_get_platform_default_hermes_home</code></td><td>Creates the whole <code>C:\c\</code> tree</td></tr>
+        <tr><td><code>hermes_state_guard.py</code></td><td><code>_real_platform_state_root</code></td><td>Guards live <code>state.db</code> against a path that does not exist &mdash; isolation silently disarmed</td></tr>
+        <tr><td><code>hermes_cli/dashboard_procs.py</code></td><td>process home resolution</td><td>Dashboard identifies processes against a phantom home</td></tr>
+      </table>
+      <p>Two further guards were added in <code>hermes_cli/_launchers.py</code> as defence in depth:
+      refuse to <code>mkdir</code> a drive-less directory, and refuse to persist one into the user PATH.</p>
+      <p>
+        Hermes already shipped the correct primitive &mdash;
+        <code>tools/environments/local.py::_msys_to_windows_path()</code> converts
+        <code>/c/Users/x</code> to <code>C:\Users\x</code>. It was simply not applied to
+        <code>LOCALAPPDATA</code>. The new <code>has_drive()</code> validator rejects drive-less
+        values rather than normalising them, because guessing at intent is how the ghost was born.
+      </p>
+
+      <h3>4. Blast radius &mdash; why it was classed as critical</h3>
+      <ul>
+        <li><strong>4.7&nbsp;GB / 107,334 files</strong> of duplicate install tree.</li>
+        <li>Both installs claimed the <strong>same install key</strong>
+            (<code>c5fcaaf047e746c6</code>), so the ghost was corrupting real package-manager state.</li>
+        <li>A <strong>0-byte <code>state.db</code></strong> and a second SQLite writer on the same
+            logical database &mdash; the reported <code>&quot;state.db is corrupted after update:
+            cannot read header&quot;</code>.</li>
+        <li>A drive-less entry was written into the <strong>user PATH</strong>
+            (<code>\c\Users\apviz\AppData\Local\hermes\bin</code>), shadowing the real launcher for
+            every subsequent shell.</li>
+      </ul>
+
+      <h3>5. Remediation &mdash; layered by durability</h3>
+      <table>
+        <tr><th style="width:130px">Layer</th><th>Mechanism</th><th style="width:150px">Survives update?</th></tr>
+        <tr><td>Source fix</td><td><code>has_drive()</code> in <code>hermes_constants.py</code> +
+            two guards in <code>_launchers.py</code>, plus drive validation in the two other carriers</td>
+            <td class="ev-DETECTED">No &mdash; <code>hermes update</code> reverts source</td></tr>
+        <tr><td>Config scrub</td><td>All 15 live config files, 135 archive files and 131 restore-point
+            files rewritten to native spelling</td><td class="ev-CLEARED">Yes</td></tr>
+        <tr><td>Self-heal</td><td><code>hermes_bug-monitor.py fix</code> re-applies the source guards by
+            marker check + surgical rewrite</td><td class="ev-CLEARED">Yes &mdash; re-runnable</td></tr>
+        <tr><td>Startup</td><td>Scheduled task <code>HermesBugMonitor</code> at logon: scans, re-checks
+            guards, re-applies if reverted</td><td class="ev-CLEARED">Yes</td></tr>
+        <tr><td>Detection</td><td>5-minute state-change monitor, 50-entry ring log, Windows popup with
+            forensics</td><td class="ev-CLEARED">Yes</td></tr>
+      </table>
+      <div class="banner ok" style="margin-top:14px">
+        <strong>Why the guard is a source edit and not an env var:</strong> setting
+        <code>HERMES_HOME</code> would steer <code>get_hermes_home()</code>, but
+        <code>_get_platform_default_hermes_home()</code> is still consulted directly at
+        <code>hermes_constants.py:90</code> and <code>:219</code>, and by the two other carriers.
+        A corrected environment variable reduces exposure; only the source guard removes the defect.
+      </div>
+
+      <h3>6. Cleanup policy &mdash; what was rewritten and what was deliberately preserved</h3>
+      <p>
+        &ldquo;Make the path vanish forever&rdquo; and &ldquo;document the error in depth&rdquo; are in
+        direct tension for files that <em>mention</em> the bug. The resolution used:
+      </p>
+      <table>
+        <tr><th style="width:280px">Class</th><th style="width:110px">Action</th><th>Reasoning</th></tr>
+        <tr><td>Live config (<code>.env</code>, <code>config.yaml</code>, <code>.ps1</code>, profiles)</td>
+            <td class="ev-CLEARED">rewritten</td><td>Read at runtime; directly regenerates the tree.</td></tr>
+        <tr><td>Rollback-capable archives (<code>state-snapshots</code>, <code>backups/</code>, <code>*.bak</code>)</td>
+            <td class="ev-CLEARED">rewritten</td><td>An archive is only inert while nothing restores from it. A single rollback reinstates the poison.</td></tr>
+        <tr><td><code>HERMES_BACKUP</code> restore point</td>
+            <td class="ev-CLEARED">rewritten<br><span class="muted">in place, no files added</span></td>
+            <td>Restricted by the operator to ghost-path fixes only, so no backup files were written into it. The change is a deterministic string swap and therefore reversible by hand.</td></tr>
+        <tr><td><code>.curator_backups\blobs\*</code></td><td class="ev-DETECTED">preserved</td>
+            <td>These are the documents that <em>explain</em> the MSYS pitfall
+                (&ldquo;<code>git -C /c/Users/...</code> fails in MSYS2 bash. Use native paths&rdquo;).
+                Rewriting them makes the warning unrecognisable and destroys the knowledge.</td></tr>
+        <tr><td><code>sessions\request_dump_*.json</code></td><td class="ev-DETECTED">preserved</td>
+            <td>Historical transcripts. Inert; rewriting them would falsify the record.</td></tr>
+      </table>
+
+      <h3>7. Single Source of Truth consolidation</h3>
+      <table>
+        <tr><th style="width:150px">Integration</th><th>Authoritative SOT</th><th style="width:290px">Evidence / orphans retired</th></tr>
+        <tr><td>Telegram agent</td><td><code>C:/Users/apviz/AppData/Local/hermes/.telegram-agent</code></td>
+            <td>Carries the credential <code>.env</code>; referenced by all 9 profiles, the main
+                config and the startup script. Orphan <code>C:/Users/apviz/.telegram-agent</code> was a
+                2026-08-05 stub whose <code>state.json</code> was byte-identical and empty
+                (<code>{"version":1,"accounts":{}}</code>) &mdash; retired.</td></tr>
+        <tr><td>WhatsApp</td><td><code>C:/Users/apviz/AppData/Local/hermes/whatsapp/session</code></td>
+            <td>The <strong>only</strong> location containing <code>creds.json</code>, and the only one
+                being written (verified 04:52). Two orphans retired: a doubly-nested empty
+                <code>.whatsapp-sessions\.whatsapp-sessions</code> (stale 2026-09-26) and the
+                profile-root <code>C:/Users/apviz/.whatsapp-sessions</code> Chromium profile.</td></tr>
+      </table>
+      <div class="banner ok">
+        <strong>Note on the historical value.</strong> The restore point consistently wanted
+        <code>/c/Users/apviz/.telegram-agent</code>, i.e. the <em>user profile root</em>. That was the
+        original intent, but the populated, credential-bearing, currently-configured directory is the
+        Hermes-managed one. The <code>/c/</code> prefix was never a different destination &mdash; it was
+        the same path written in the wrong dialect. The SOT follows the live system, not the spelling.
+      </div>
+
+      <h3>8. Open findings &mdash; reported, not fixed</h3>
+      <ul>
+        <li><code>creds.json</code> in the WhatsApp SOT is <strong>0 bytes</strong> (2026-09-22). Worth
+            confirming whether WhatsApp is genuinely authenticated or silently re-pairing.</li>
+        <li>The Hermes checkout is <strong>dirty</strong>: 204 files with real content changes and 64
+            with line-ending-only changes versus <code>105e876586</code>. This is why the version string
+            reads <code>.dirty</code>. Left untouched &mdash; it is accumulated local state, not a defect.</li>
+        <li>Five plaintext secrets remain in <code>scripts/messaging_startup_full_env.ps1</code> and are
+            duplicated across <code>.env</code>, <code>config.yaml</code> and the profile configs. Not
+            rotated &mdash; rotation would break the live bots and was not authorised.</li>
+      </ul>
+
+      <h3>9. Extending this monitor</h3>
+      <p>
+        The system was deliberately built to absorb more defect classes. To add one, add a
+        <code>probe_*()</code> function, fold it into <code>probe()</code>'s return dict, extend
+        <code>_state_key()</code> with its identity, and add a section to <code>build_report()</code>.
+        The cadence, ring buffer, popup, dashboard and runbook need no changes.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= LAYOUT ================= -->
+  <section id="t-layout" class="hidden">
+    <div class="panel">
+      <h2>Files and paths</h2>
+      <table id="pathTable"></table>
+    </div>
+  </section>
+</main>
+
+<script src="dashboard_data.js"></script>
+<script>
+const D = window.BUGMON_DATA || {};
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function tab(name){
+  ["status","logs","control","doc","layout"].forEach(t=>{
+    $("t-"+t).classList.toggle("hidden", t!==name);
+  });
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.t===name));
+  window.scrollTo(0,0);
+}
+
+function init(){
+  $("gen").textContent = "generated " + (D.generated || "—");
+  const st = D.state || {};
+  const clean = st.clean !== false;
+  const since = st.since ? ("clear since " + st.since) : "";
+  $("statusPill").className = "pill " + (clean ? "ok" : "bad");
+  $("statusPill").textContent = clean ? "SYSTEM CLEAN" : "GHOST PATH DETECTED";
+  $("daemonPill").className = "pill " + (D.running ? "ok" : "idle");
+  $("daemonPill").textContent = D.running ? ("DAEMON RUNNING · PID " + D.pid) : "DAEMON STOPPED";
+
+  $("banner").innerHTML = clean
+    ? '<div class="banner ok">No duplicated-drive root found on any drive. Last scan: <code>'+
+        esc(st.last_scan||"—")+'</code> · '+esc(since)+'</div>'
+    : '<div class="banner bad"><strong>Ghost path present.</strong> Since <code>'+
+        esc(st.since||"?")+'</code> — '+esc(st.last_summary||"")+
+        ' Use <em>Control → Fix it now</em> or the popup.</div>';
+
+  const cards = [
+    ["Scan interval", D.interval_seconds+" s", ""],
+    ["Last scan", (st.last_scan||"—"), "sm"],
+    ["Scans since last change", (st.scanned_count!==undefined?st.scanned_count:"—"), ""],
+    ["Log entries", (D.log_entries||0)+" / "+(D.log_capacity||50), ""],
+    ["Source guards", (D.guards_all_present?"ALL PRESENT":"REVERTED — run fix"), D.guards_all_present?"":"sm"],
+    ["State key", (st.state_key||"—"), "sm"],
+  ];
+  $("cards").innerHTML = cards.map(c=>
+    '<div class="card"><div class="k">'+esc(c[0])+'</div><div class="v '+(c[2]||'')+'">'+esc(c[1])+'</div></div>'
+  ).join("");
+
+  $("guardTable").innerHTML =
+    "<tr><th>File</th><th>Guard</th><th style='width:100px'>Present</th></tr>" +
+    (D.guards||[]).map(g=>
+      "<tr><td><code>"+esc(g.file)+"</code></td><td>"+esc(g.guard)+"</td><td>"+
+      '<span class="tag '+(g.present?"y":"n")+'">'+(g.present?"present":"MISSING")+"</span></td></tr>"
+    ).join("");
+
+  $("logCount").textContent = D.log_entries||0;
+  $("logCap").textContent = D.log_capacity||50;
+  $("logTable").innerHTML =
+    "<tr><th style='width:190px'>Time</th><th style='width:110px'>Event</th><th>Summary</th><th style='width:90px'>Report</th></tr>" +
+    ((D.entries&&D.entries.length) ? D.entries.map(e=>
+      "<tr><td><code>"+esc(e.timestamp)+"</code></td>"+
+      "<td class='ev-"+esc(e.event)+"'>"+esc(e.event)+"</td>"+
+      "<td>"+esc(e.summary)+"</td>"+
+      "<td>"+(e.has_report?"<span class='tag y'>yes</span>":"<span class='tag'>—</span>")+"</td></tr>"
+    ).join("") : "<tr><td colspan='4' class='muted'>No state changes recorded yet. The log stays empty while the system is stable — that is the intended behaviour.</td></tr>");
+
+  $("reportBox").textContent = D.latest_report ||
+    "No report generated yet. A report is written whenever the monitor observes the ghost path appearing, changing, or being cleared.";
+
+  const p = D.paths||{};
+  $("pathTable").innerHTML =
+    "<tr><th>Artefact</th><th>Path</th></tr>" +
+    Object.keys(p).map(k=>"<tr><td>"+esc(k)+"</td><td><code>"+esc(p[k])+"</code></td></tr>").join("") +
+    "<tr><td>monitor root</td><td><code>"+esc(D.root)+"</code></td></tr>"+
+    "<tr><td>Hermes home</td><td><code>"+esc(D.hermes_home)+"</code></td></tr>";
+}
+
+function act(cmd){
+  alert("Running:  hermes_bug-monitor_sys.bat " + cmd +
+        "\n\nA console window will open. This page reads state written by the monitor, " +
+        "so reopen or refresh it afterwards to see the result.");
+}
+
+function openBat(){
+  alert("Launcher:\n\n" + (D.paths?D.paths.bat:"hermes_bug-monitor_sys.bat") +
+        "\n\nCommands: daemon | start | stop | status | scan-once | fix | scrub-archives | " +
+        "selftest | reset-log | install-startup | uninstall-startup | dashboard");
+}
+
+init();
+</script>
+</body>
+</html>

@@ -27,6 +27,15 @@
 !/Raport de stare Hermes Doctor*.md
 !/raport-archive/
 
+# Arsenalul doctorului: plasa de autocomit, portile, registrele
+!/hermes-doctor/
+/hermes-doctor/*
+!/hermes-doctor/hermes-doctor-autocommit.ps1
+!/hermes-doctor/secret_gate.py
+!/hermes-doctor/test_secret_gate.py
+!/hermes-doctor/hermes-doctor-ignorat.txt
+!/hermes-doctor/hermes-doctor-registru.txt
+
 # Unealta doctorului: Bug-Monitor, gardianul, scripturile lui
 !/HERMES_OPTIMUS/
 /HERMES_OPTIMUS/*
@@ -44,6 +53,15 @@
 # spune nimic într-un istoric.
 /HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/logs/**
 /HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/state/**
+
+# Ieșire GENERATĂ de daemon, nu sursă. Ambele sunt scrise de
+# hermes_bug-monitor.py la fiecare scan (dashboard_data.js la linia 1850,
+# latest-report.txt la 832), iar taskul HermesBugMonitor rulează acum.
+# Versionate, ar regenera EXACT incidentul din vault: 60 de commit-uri
+# identice "Salvare automata" fără nicio schimbare reală.
+# Sursa rămâne urmărită: dashboard.html, *.py, *.bat, *.ps1, docs/, reports/<dată>-*.md
+/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/dashboard_data.js
+/HERMES_OPTIMUS/CASA/OPTIMUS - Prime/OPTIMUS_Bug-Monitor/reports/latest-report.txt
 
 # Niciodată bytecode sau secrete, nici dacă o regulă de mai sus le-ar deschide
 **/__pycache__/**

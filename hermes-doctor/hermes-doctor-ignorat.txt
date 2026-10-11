@@ -1,0 +1,21 @@
+# hermes-doctor-ignorat.txt
+# Căi pe care plasa de siguranță a proiectului Hermes Doctor NU le comită niciodată.
+#
+# Format: câte o linie, cale relativă la rădăcina repo-ului,
+# wildcard PowerShell (-like). Liniile goale și cele cu # se ignoră.
+
+# Logul propriu al plasei. Măsurat 2026-10-11: într-un alt repo, fără această
+# regulă, scriptul s-a comitat pe sine — scria o intrare, intrarea schimba
+# fisierul, fisierul schimbat se comita din nou — 60 de comituri identice la
+# 5 minute unul după altul, într-un repo care aparținea altui proiect.
+hermes-doctor/raport-autocomit.log
+
+# Registrul și lista: se schimbă rar, dar nu spun nimic într-un istoric.
+hermes-doctor/hermes-doctor-registru.txt
+
+# Probe-urile temporare ale autoprobei, dacă vreodată ajung pe disc.
+hermes-doctor/probe-*
+
+# Volatil de orice fel.
+**/__pycache__/**
+*.pyc

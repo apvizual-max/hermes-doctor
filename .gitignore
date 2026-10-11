@@ -35,6 +35,7 @@
 !/hermes-doctor/test_secret_gate.py
 !/hermes-doctor/test_sensibilitate.py
 !/hermes-doctor/test_garza_ramura.py
+!/hermes-doctor/audit_remote_secrete.py
 !/hermes-doctor/hermes-doctor-ignorat.txt
 !/hermes-doctor/hermes-doctor-registru.txt
 

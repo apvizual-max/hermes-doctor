@@ -33,6 +33,7 @@
 !/hermes-doctor/hermes-doctor-autocommit.ps1
 !/hermes-doctor/secret_gate.py
 !/hermes-doctor/test_secret_gate.py
+!/hermes-doctor/test_sensibilitate.py
 !/hermes-doctor/hermes-doctor-ignorat.txt
 !/hermes-doctor/hermes-doctor-registru.txt
 

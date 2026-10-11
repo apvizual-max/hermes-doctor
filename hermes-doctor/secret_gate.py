@@ -1,4 +1,4 @@
-"""Secret gate for the Hermes Doctor repo.
+﻿"""Secret gate for the Hermes Doctor repo.
 
 Runs over exactly the files `git add -A` would stage — not a hypothetical tree.
 A whitelist can open a file whose CONTENT holds a token; the path check never

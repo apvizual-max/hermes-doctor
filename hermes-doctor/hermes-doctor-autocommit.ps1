@@ -1,4 +1,4 @@
-<#
+﻿<#
     hermes-doctor-autocommit.ps1 — plasa de siguranță pentru proiectul Hermes Doctor
 
     Ce face: dacă proiectul Hermes Doctor are fișiere modificate și necomitate,
@@ -65,18 +65,18 @@ function Invoke-Autoproba {
     # rulare. Un fisier generat e o a doua suprafata de esec; unul testat
     # 18/18 nu e.
     if (-not (Test-Path -LiteralPath $gatePy) -or -not (Test-Path -LiteralPath $testPy)) {
-        Write-Output 'AUTOPROBA: portile sau testul lipsesc - nu pot verifica nimic'
+        Write-Host 'AUTOPROBA: portile sau testul lipsesc - nu pot verifica nimic'
         return 3
     }
     $rez = @(& $python $testPy $gatePy 2>&1)
     $rc = $LASTEXITCODE
     $sumar = ($rez | Where-Object { $_ -match 'RESULT' } | Select-Object -Last 1)
     if ($rc -ne 0) {
-        Write-Output ('AUTOPROBA: PICAT ' + $sumar)
+        Write-Host ('AUTOPROBA: PICAT ' + $sumar)
         return 3
     }
-    Write-Output ('AUTOPROBA: TRECUT ' + $sumar)
-    Write-Output 'AUTOPROBA: POARTA DE SECRETE POATE DEVENI ROSIE'
+    Write-Host ('AUTOPROBA: TRECUT ' + $sumar)
+    Write-Host 'AUTOPROBA: POARTA DE SECRETE POATE DEVENI ROSIE'
     return 0
 }
 

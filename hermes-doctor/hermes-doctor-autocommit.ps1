@@ -119,16 +119,16 @@ if (-not (Test-Path -LiteralPath $python)) {
 Push-Location $Repo
 
 try {
-    $ramura = (& git rev-parse --abbrev-ref HEAD 2>$null)
+    $ramuraCurenta = (& git rev-parse --abbrev-ref HEAD 2>$null)
     if ($LASTEXITCODE -ne 0) {
         Scrie-Log 'EROARE: HEAD nu se poate citi'
         Write-Output 'AUTOCOMIT: HEAD ilizibil'
         exit 2
     }
-    if ($ramura -ne $RAMURA) {
+    if ($ramuraCurenta -ne $RAMURA) {
         # Nu creează ramuri, nu se mută între ele. Doar spune.
-        Scrie-Log ("REFUZAT: ramuta curenta este '" + $ramura + "', nu '" + $RAMURA + "'")
-        Write-Output ('AUTOCOMIT: sunt pe ramura ' + $ramura + ' — nu schimb ramura singur')
+        Scrie-Log ("REFUZAT: ramuta curenta este '" + $ramuraCurenta + "', nu '" + $RAMURA + "'")
+        Write-Output ('AUTOCOMIT: sunt pe ramura ' + $ramuraCurenta + ' — nu schimb ramura singur')
         exit 1
     }
 

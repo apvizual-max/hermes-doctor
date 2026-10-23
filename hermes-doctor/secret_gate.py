@@ -28,7 +28,7 @@ PATTERNS = {
     "bearer-token": re.compile(r"(?i)authorization:\s*bearer\s+([A-Za-z0-9._\-]{20,})"),
     "assigned-secret": re.compile(
         r"(?i)\b(password|passwd|secret|api[_-]?key|apikey|access[_-]?token|auth[_-]?token|client[_-]?secret)\b"
-        r"\s*[:=]\s*[\"']([^\"'\s]{8,})[\"']"
+        r"\s*[:=]\s*(?:[\"']?)([^\"'\s]{8,})(?:[\"']?)"
     ),
 }
 

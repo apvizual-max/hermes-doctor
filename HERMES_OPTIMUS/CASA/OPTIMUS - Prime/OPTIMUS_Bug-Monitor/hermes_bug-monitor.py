@@ -155,29 +155,45 @@ def _tree_fingerprint(root: Path, max_entries: int = 200_000) -> dict:
     digest = hashlib.sha256()
     truncated = False
 
+    root_str = str(root)
+    root_len = len(root_str)
+    has_trailing_sep = root_str.endswith(os.sep)
+    sep_offset = root_len if has_trailing_sep else root_len + 1
+    newest_path_abs = ""
+
     for dirpath, dirnames, filenames in os.walk(root, topdown=True):
         dirs += len(dirnames)
         files += len(filenames)
         if files + dirs > max_entries:
             truncated = True
             break
+
         for fn in filenames:
-            fp = Path(dirpath) / fn
+            fp = os.path.join(dirpath, fn)
             try:
-                st = fp.stat()
+                st = os.stat(fp)
             except OSError:
                 continue
             total_bytes += st.st_size
             if st.st_mtime > newest_mtime:
                 newest_mtime = st.st_mtime
-                newest_path = str(fp.relative_to(root))
+                newest_path_abs = fp
             if st.st_ctime and (oldest_ctime == 0.0 or st.st_ctime < oldest_ctime):
                 oldest_ctime = st.st_ctime
-        try:
-            rel = str(Path(dirpath).relative_to(root))
-        except ValueError:
-            rel = ""
+
+        if dirpath == root_str:
+            rel = "."
+        else:
+            rel = dirpath[sep_offset:]
+            if os.name == 'nt':
+                rel = rel.replace('\\', '/')
         digest.update(rel.encode("utf-8", "replace"))
+
+    if newest_path_abs:
+        if newest_path_abs.startswith(root_str):
+            newest_path = newest_path_abs[sep_offset:]
+            if os.name == 'nt':
+                newest_path = newest_path.replace('\\', '/')
 
     return {
         "files": files,

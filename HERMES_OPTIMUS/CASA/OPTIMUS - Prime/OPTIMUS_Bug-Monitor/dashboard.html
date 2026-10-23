@@ -91,19 +91,19 @@
   <button class="act" onclick="location.reload(true)">Refresh</button>
 </header>
 
-<nav>
-  <button class="on" data-t="status" onclick="tab('status')">Status</button>
-  <button data-t="logs" onclick="tab('logs')">Logs &amp; Reports</button>
-  <button data-t="control" onclick="tab('control')">Control</button>
-  <button data-t="doc" onclick="tab('doc')">Bug Documentation</button>
-  <button data-t="layout" onclick="tab('layout')">System Layout</button>
+<nav role="tablist" aria-label="Dashboard sections">
+  <button class="on" data-t="status" onclick="tab('status')" role="tab" aria-selected="true" aria-controls="t-status" id="tab-status">Status</button>
+  <button data-t="logs" onclick="tab('logs')" role="tab" aria-selected="false" aria-controls="t-logs" id="tab-logs">Logs &amp; Reports</button>
+  <button data-t="control" onclick="tab('control')" role="tab" aria-selected="false" aria-controls="t-control" id="tab-control">Control</button>
+  <button data-t="doc" onclick="tab('doc')" role="tab" aria-selected="false" aria-controls="t-doc" id="tab-doc">Bug Documentation</button>
+  <button data-t="layout" onclick="tab('layout')" role="tab" aria-selected="false" aria-controls="t-layout" id="tab-layout">System Layout</button>
 </nav>
 
 <main>
   <div id="banner"></div>
 
   <!-- ================= STATUS ================= -->
-  <section id="t-status">
+  <section id="t-status" role="tabpanel" aria-labelledby="tab-status">
     <div class="panel">
       <h2>Live state</h2>
       <div class="grid g4" id="cards"></div>
@@ -120,7 +120,7 @@
   </section>
 
   <!-- ================= LOGS ================= -->
-  <section id="t-logs" class="hidden">
+  <section id="t-logs" class="hidden" role="tabpanel" aria-labelledby="tab-logs">
     <div class="panel">
       <h2>Event log &mdash; ring buffer (<span id="logCount">0</span>/<span id="logCap">50</span>)</h2>
       <p class="muted" style="margin-top:-6px;font-size:12.5px">
@@ -137,7 +137,7 @@ monitor observes the ghost path appearing, changing, or being cleared.</pre>
   </section>
 
   <!-- ================= CONTROL ================= -->
-  <section id="t-control" class="hidden">
+  <section id="t-control" class="hidden" role="tabpanel" aria-labelledby="tab-control">
     <div class="panel">
       <h2>Manual control</h2>
       <p class="muted" style="margin-top:-6px;font-size:12.5px">
@@ -175,7 +175,7 @@ monitor observes the ghost path appearing, changing, or being cleared.</pre>
   </section>
 
   <!-- ================= DOC ================= -->
-  <section id="t-doc" class="hidden">
+  <section id="t-doc" class="hidden" role="tabpanel" aria-labelledby="tab-doc">
     <div class="panel">
       <h2>Bug documentation &mdash; the ghost path (<code>C:\c\Users\...</code>)</h2>
 
@@ -340,7 +340,7 @@ return base / ("hermes" + suffix)</pre>
   </section>
 
   <!-- ================= LAYOUT ================= -->
-  <section id="t-layout" class="hidden">
+  <section id="t-layout" class="hidden" role="tabpanel" aria-labelledby="tab-layout">
     <div class="panel">
       <h2>Files and paths</h2>
       <table id="pathTable"></table>
@@ -358,7 +358,10 @@ function tab(name){
   ["status","logs","control","doc","layout"].forEach(t=>{
     $("t-"+t).classList.toggle("hidden", t!==name);
   });
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.t===name));
+  document.querySelectorAll("nav button").forEach(b=>{
+    b.classList.toggle("on", b.dataset.t===name);
+    b.setAttribute("aria-selected", b.dataset.t===name);
+  });
   window.scrollTo(0,0);
 }
 

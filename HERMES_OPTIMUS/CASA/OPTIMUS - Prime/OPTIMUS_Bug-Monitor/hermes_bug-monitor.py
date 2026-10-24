@@ -524,17 +524,26 @@ def suspect_processes(ghost_created_epoch: float | None, window_s: int = 300) ->
 def newest_artifacts(root: Path, n: int = 25) -> list[dict]:
     """The most recently written paths under the ghost -- names the module that wrote."""
     rows: list[dict] = []
-    for dirpath, _dirnames, filenames in os.walk(root, topdown=True):
+
+    # ⚡ Bolt Optimization: Use string manipulation and os.path instead of pathlib
+    # inside the loop. Instantiating Path objects in a tight loop is a
+    # major performance bottleneck for large directories.
+    root_str = str(root)
+    root_len = len(root_str)
+    if not root_str.endswith(os.sep):
+        root_len += 1
+
+    for dirpath, _dirnames, filenames in os.walk(root_str, topdown=True):
         for fn in filenames:
-            fp = Path(dirpath) / fn
+            fp_str = os.path.join(dirpath, fn)
             try:
-                st = fp.stat()
+                st = os.stat(fp_str)
             except OSError:
                 continue
             rows.append(
                 {
-                    "path": str(fp),
-                    "relative": str(fp.relative_to(root)),
+                    "path": fp_str,
+                    "relative": fp_str[root_len:],
                     "size": st.st_size,
                     "modified": _iso(datetime.fromtimestamp(st.st_mtime)),
                     "created": _iso(datetime.fromtimestamp(st.st_ctime)) if st.st_ctime else "",

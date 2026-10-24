@@ -155,28 +155,38 @@ def _tree_fingerprint(root: Path, max_entries: int = 200_000) -> dict:
     digest = hashlib.sha256()
     truncated = False
 
-    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+    # ⚡ Bolt Optimization: Use string manipulation and os.path instead of pathlib
+    # inside the loop. Instantiating Path objects in a tight loop for 100k+ files
+    # is a major performance bottleneck. This reduces execution time significantly.
+    root_str = str(root)
+    root_len = len(root_str)
+    if not root_str.endswith(os.sep):
+        root_len += 1
+
+    for dirpath, dirnames, filenames in os.walk(root_str, topdown=True):
         dirs += len(dirnames)
         files += len(filenames)
         if files + dirs > max_entries:
             truncated = True
             break
         for fn in filenames:
-            fp = Path(dirpath) / fn
+            fp_str = os.path.join(dirpath, fn)
             try:
-                st = fp.stat()
+                st = os.stat(fp_str)
             except OSError:
                 continue
             total_bytes += st.st_size
             if st.st_mtime > newest_mtime:
                 newest_mtime = st.st_mtime
-                newest_path = str(fp.relative_to(root))
+                newest_path = fp_str[root_len:]
             if st.st_ctime and (oldest_ctime == 0.0 or st.st_ctime < oldest_ctime):
                 oldest_ctime = st.st_ctime
-        try:
-            rel = str(Path(dirpath).relative_to(root))
-        except ValueError:
-            rel = ""
+
+        if dirpath == root_str:
+            rel = "."
+        else:
+            rel = dirpath[root_len:]
+
         digest.update(rel.encode("utf-8", "replace"))
 
     return {

@@ -60,6 +60,9 @@ print("3. assigned secret MUST be caught")
 hits = g.scan('password' + ' = "Tr0ub4dor&3xyz"')
 check("assigned password caught", len(hits) > 0, f"got {[h[0] for h in hits]}")
 
+hits = g.scan('password' + '=Tr0ub4dor&3xyz')
+check("unquoted assigned password caught", len(hits) > 0, f"got {[h[0] for h in hits]}")
+
 print("4. placeholders MUST NOT be flagged")
 for val in ["<your-key-here>", "YOUR_API_KEY", "changeme", "placeholder", "***", "xxx",
             "${SECRET}", "n/a", "redacted", "parolă", "test"]:

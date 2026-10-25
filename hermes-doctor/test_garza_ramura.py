@@ -12,7 +12,8 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-DOCTOR = Path(r"C:\Users\apviz\AppData\Local\hermes\hermes-doctor")
+import os
+DOCTOR = Path(os.environ.get("HERMES_DOCTOR_DIR", Path(__file__).resolve().parent))
 PS = "powershell"
 
 def git(repo, *args):

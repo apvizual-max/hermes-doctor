@@ -30,7 +30,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Repo = 'C:\Users\apviz\AppData\Local\hermes',
+    [string]$Repo = (Get-Item .).FullName,
     [int]$SettleSeconds = 60,
     [switch]$CeVerificare,
     [switch]$AutoProbe,
@@ -45,7 +45,7 @@ $registru  = Join-Path $scriptDir 'hermes-doctor-registru.txt'
 $log       = Join-Path $scriptDir 'raport-autocomit.log'
 $gatePy    = Join-Path $scriptDir 'secret_gate.py'
 $testPy    = Join-Path $scriptDir 'test_secret_gate.py'
-$python    = Join-Path $env:LOCALAPPDATA 'hermes\tools\python-3.14.7+20260901-win32-x64\python.exe'
+$python    = if ($env:HERMES_PYTHON) { $env:HERMES_PYTHON } else { 'python' }
 
 $RAMURA = 'main'
 

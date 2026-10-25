@@ -13,8 +13,9 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-SRC = Path(r"C:\Users\apviz\AppData\Local\hermes\hermes-doctor")
-PYTHON = Path(r"C:\Users\apviz\AppData\Local\hermes\tools\python-3.14.7+20260901-win32-x64\python.exe")
+import os, sys
+SRC = Path(os.environ.get("HERMES_DOCTOR_DIR", Path(__file__).resolve().parent))
+PYTHON = Path(os.environ.get("HERMES_PYTHON", sys.executable))
 
 print("python folosit de autoproba:", PYTHON.exists())
 print("python din PATH          :", sys.executable)

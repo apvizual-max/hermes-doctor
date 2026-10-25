@@ -30,7 +30,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Repo = 'C:\Users\apviz\AppData\Local\hermes',
+    [string]$Repo = (Join-Path $PSScriptRoot '..'),
     [int]$SettleSeconds = 60,
     [switch]$CeVerificare,
     [switch]$AutoProbe,

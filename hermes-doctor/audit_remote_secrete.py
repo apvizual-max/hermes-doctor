@@ -8,12 +8,13 @@ value, so the verdict rests on evidence rather than on my reading of a name.
 import hashlib
 import re
 import subprocess
+import os
 import sys
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-REPO = Path(r"C:\Users\apviz\AppData\Local\hermes")
+REPO = Path(os.environ.get("HERMES_HOME", Path(__file__).resolve().parent.parent))
 ENV = REPO / ".env"
 
 

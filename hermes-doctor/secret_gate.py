@@ -8,12 +8,13 @@ Reports shape only: field name, length, sha256[:12]. Never a value.
 Exit 1 if anything smells; 0 otherwise.
 """
 import hashlib
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-HOME = Path(r"C:\Users\apviz\AppData\Local\hermes")
+HOME = Path(os.environ.get("HERMES_HOME", Path(__file__).resolve().parent.parent))
 
 # name -> regex. Order matters only for reporting.
 PATTERNS = {

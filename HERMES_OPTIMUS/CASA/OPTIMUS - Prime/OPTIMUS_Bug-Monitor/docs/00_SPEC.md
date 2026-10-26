@@ -2,7 +2,7 @@
 
 **Component:** OPTIMUS Prime → Hermes Bug-Monitor
 **Version:** 1.0.0
-**Location:** `C:\Users\apviz\AppData\Local\hermes\HERMES_OPTIMUS\CASA\OPTIMUS - Prime\OPTIMUS_Bug-Monitor`
+**Location:** `<HERMES_HOME>\HERMES_OPTIMUS\CASA\OPTIMUS - Prime\OPTIMUS_Bug-Monitor`
 **Status:** Operational
 **Classification:** System backbone guardrail — deliberately *outside* the Hermes plugin/MCP surface
 

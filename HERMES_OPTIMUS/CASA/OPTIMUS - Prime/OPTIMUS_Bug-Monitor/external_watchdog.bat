@@ -30,7 +30,7 @@ if not exist "%PY%" (
     set "PY=python.exe"
 )
 
-set "LOG_DIR=C:\Users\apviz\AppData\Local\hermes\HERMES_OPTIMUS\CASA\OPTIMUS - Prime\OPTIMUS_Bug-Monitor\logs"
+set "LOG_DIR=%~dp0logs"
 set "EXTERNAL_LOG=%LOG_DIR%\external-watchdog.jsonl"
 
 REM --- detect ghost path ---

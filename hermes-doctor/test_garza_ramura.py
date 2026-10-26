@@ -12,8 +12,8 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-DOCTOR = Path(r"C:\Users\apviz\AppData\Local\hermes\hermes-doctor")
-PS = "powershell"
+DOCTOR = Path(__file__).parent.resolve()
+PS = shutil.which("pwsh") or "powershell"
 
 def git(repo, *args):
     return subprocess.run(["git", "-C", str(repo), *args],

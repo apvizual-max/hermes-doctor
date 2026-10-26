@@ -237,7 +237,7 @@ return base / ("hermes" + suffix)</pre>
       <p>
         Hermes already shipped the correct primitive &mdash;
         <code>tools/environments/local.py::_msys_to_windows_path()</code> converts
-        <code>/c/Users/x</code> to <code>C:\Users\x</code>. It was simply not applied to
+        <code>/c/Users/x</code> to <code>&lt;WIN_HOME&gt;\x</code>. It was simply not applied to
         <code>LOCALAPPDATA</code>. The new <code>has_drive()</code> validator rejects drive-less
         values rather than normalising them, because guessing at intent is how the ghost was born.
       </p>

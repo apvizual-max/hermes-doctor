@@ -1755,11 +1755,13 @@ def scrub_archives(*, apply: bool = False) -> dict:
                 continue
             if SCRUB_NAME_RE is None or not SCRUB_NAME_RE.match(fn):
                 continue
-            p = Path(dirpath) / fn
+            # Bolt: Optimize by avoiding pathlib.Path object creation in tight loop; use os.path instead.
+            filepath = os.path.join(dirpath, fn)
             try:
-                if p.stat().st_size > 5_000_000:
+                if os.path.getsize(filepath) > 5_000_000:
                     continue
-                raw = p.read_text(encoding="utf-8")
+                with open(filepath, "r", encoding="utf-8") as _f:
+                    raw = _f.read()
             except (OSError, UnicodeDecodeError):
                 continue
             if "/c/Users" not in raw and "/cygdrive/c/Users" not in raw and "/mnt/c/Users" not in raw:
@@ -1767,19 +1769,21 @@ def scrub_archives(*, apply: bool = False) -> dict:
             new = _scrub_text(raw)
             n_before = raw.count("/c/Users") + raw.count("/cygdrive/c/Users") + raw.count("/mnt/c/Users")
             rec = {
-                "file": str(p),
+                "file": filepath,
                 "occurrences": n_before,
                 "before": [ln.strip()[:120] for ln in raw.splitlines() if "/c/Users" in ln or "/cygdrive/c/" in ln or "/mnt/c/" in ln][:4],
             }
             if apply and new != raw:
                 try:
-                    backup = p.with_name(p.name + ".bugmon-bak")
-                    if not backup.exists():
-                        backup.write_text(raw, encoding="utf-8")
-                    p.write_text(new, encoding="utf-8")
+                    backup_path = filepath + ".bugmon-bak"
+                    if not os.path.exists(backup_path):
+                        with open(backup_path, "w", encoding="utf-8") as _f:
+                            _f.write(raw)
+                    with open(filepath, "w", encoding="utf-8") as _f:
+                        _f.write(new)
                     rec["written"] = True
                 except OSError as exc:
-                    errors.append(f"{p}: {exc}")
+                    errors.append(f"{filepath}: {exc}")
                     rec["written"] = False
             else:
                 rec["written"] = False

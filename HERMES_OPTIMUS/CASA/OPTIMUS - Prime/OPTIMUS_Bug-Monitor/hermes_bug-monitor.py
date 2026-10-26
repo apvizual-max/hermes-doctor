@@ -1421,8 +1421,8 @@ def cmd_monitor(interval: int = INTERVAL_SECONDS, once: bool = False) -> int:
                 print(f"[bug-monitor] skills guardian error: {exc}", file=sys.stderr)
             if once:
                 break
-            for _ in range(max(1, interval)):
-                time.sleep(1)
+            # Optimization: single sleep avoids loop overhead
+            time.sleep(max(1, interval))
     except KeyboardInterrupt:
         print("\n[bug-monitor] stopping")
     finally:

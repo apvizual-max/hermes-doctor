@@ -1744,7 +1744,7 @@ def scrub_archives(*, apply: bool = False) -> dict:
     for dirpath, dirnames, filenames in os.walk(HERMES_HOME, topdown=True):
         pruned = [d for d in dirnames if d in SCRUB_SKIP_DIRS]
         for d in pruned:
-            skipped_dir.append(str(Path(dirpath) / d))
+            skipped_dir.append(os.path.join(dirpath, d))
         dirnames[:] = [d for d in dirnames if d not in SCRUB_SKIP_DIRS]
 
         for fn in filenames:

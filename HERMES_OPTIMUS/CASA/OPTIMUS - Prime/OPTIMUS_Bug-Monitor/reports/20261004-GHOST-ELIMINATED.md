@@ -44,7 +44,7 @@ ghost.
 - Confirmed ghost tree: `C:\c\Users\apviz\` — 6 files, 14 dirs, 2,365 bytes,
   identity `f1a3d4c52da6b3e0`, created 2026-10-03 01:07:18 by
   `hermes_cli.boot_bootstrap`
-- Per-file inventory vs main `C:\Users\apviz\AppData\Local\hermes`:
+- Per-file inventory vs main `<HERMES_HOME>`:
   - `SOUL.md` 667B (stub) vs main 10,958B (custom) — main wins
   - `logs/agent.log` 617B vs main 3.4 MB — main is full log
   - `logs/errors.log` 498B vs main 1.4 MB — main is full log
@@ -121,7 +121,7 @@ Created two scripts in `OPTIMUS_Bug-Monitor/`:
    script needs elevation; the agent does not have it.
    ```
    # Run from elevated cmd:
-   "C:\Users\apviz\AppData\Local\hermes\HERMES_OPTIMUS\CASA\OPTIMUS - Prime\OPTIMUS_Bug-Monitor\install-external-watchdog.bat"
+   "<HERMES_HOME>\HERMES_OPTIMUS\CASA\OPTIMUS - Prime\OPTIMUS_Bug-Monitor\install-external-watchdog.bat"
    # Verify:
    schtasks /Query /TN "GhostPathExternalWatchdog"
    schtasks /Query /TN "GhostPathExternalWatchdog-15m"
@@ -129,7 +129,7 @@ Created two scripts in `OPTIMUS_Bug-Monitor/`:
 
 2. **Commit the 3 new guards** (still in working tree, uncommitted).
    ```
-   cd C:\Users\apviz\AppData\Local\hermes\hermes-agent
+   cd <HERMES_HOME>\hermes-agent
    git add hermes_state_guard.py hermes_cli\dashboard_procs.py hermes_cli\_launchers.py
    # NEVER git add -A — sweeps in .env backups with plaintext secrets
    git diff --cached --name-only  # verify

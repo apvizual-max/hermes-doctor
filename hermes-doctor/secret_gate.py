@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-HOME = Path(r"C:\Users\apviz\AppData\Local\hermes")
+HOME = Path(__file__).parent.parent.resolve()
 
 # name -> regex. Order matters only for reporting.
 PATTERNS = {

@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-REPO = Path(r"C:\Users\apviz\AppData\Local\hermes")
+REPO = Path(__file__).parent.parent.resolve()
 ENV = REPO / ".env"
 
 

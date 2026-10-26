@@ -1,2 +1,2 @@
 ﻿
-C:\Users\apviz\AppData\Local\hermes
+<HERMES_HOME>

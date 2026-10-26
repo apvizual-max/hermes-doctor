@@ -1625,6 +1625,27 @@ def cmd_selftest() -> int:
             )
             _sg.snapshot(refresh=True)
             check("accept-live refreshes canonical after an edit", _sg.verify() == [])
+
+            # Test load_manifest error handling
+            _sg.MANIFEST_PATH.write_text("{invalid json", encoding="utf-8")
+            res_val_error = _sg.load_manifest()
+            check(
+                "load_manifest handles ValueError (invalid JSON)",
+                res_val_error == {"version": 1, "captured": None, "skills": {}},
+                f"got {res_val_error}"
+            )
+
+            _sg.MANIFEST_PATH.unlink()
+            _sg.MANIFEST_PATH.mkdir()
+            try:
+                res_os_error = _sg.load_manifest()
+                check(
+                    "load_manifest handles OSError",
+                    res_os_error == {"version": 1, "captured": None, "skills": {}},
+                    f"got {res_os_error}"
+                )
+            finally:
+                _sg.MANIFEST_PATH.rmdir()
         finally:
             _sg.SKILLS_DIR, _sg.CANONICAL_DIR, _sg.MANIFEST_PATH = (
                 live_skills_dir,

@@ -10,10 +10,11 @@ Exit 1 if anything smells; 0 otherwise.
 import hashlib
 import re
 import subprocess
+import os
 import sys
 from pathlib import Path
 
-HOME = Path(r"C:\Users\apviz\AppData\Local\hermes")
+HOME = Path(os.environ.get("HERMES_HOME", Path.cwd()))
 
 # name -> regex. Order matters only for reporting.
 PATTERNS = {

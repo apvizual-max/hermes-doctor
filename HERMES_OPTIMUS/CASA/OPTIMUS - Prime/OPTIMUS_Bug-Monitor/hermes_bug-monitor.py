@@ -1650,6 +1650,31 @@ def cmd_selftest() -> int:
             )
             empty_test_file.unlink()
 
+            # Test load_manifest error handling
+            invalid_manifest = scratch / "manifest_invalid.json"
+            invalid_manifest.write_text("{invalid json", encoding="utf-8")
+            _sg.MANIFEST_PATH = invalid_manifest
+            res_invalid = _sg.load_manifest()
+            check(
+                "skills guardian load_manifest handles ValueError",
+                res_invalid == {"version": 1, "captured": None, "skills": {}},
+                f"got {res_invalid}"
+            )
+
+            class MockManifestPath:
+                def is_file(self): return True
+                def read_text(self, *args, **kwargs): raise OSError("mock error")
+
+            _sg.MANIFEST_PATH = MockManifestPath()
+            res_oserror = _sg.load_manifest()
+            check(
+                "skills guardian load_manifest handles OSError",
+                res_oserror == {"version": 1, "captured": None, "skills": {}},
+                f"got {res_oserror}"
+            )
+            _sg.MANIFEST_PATH = _sg.CANONICAL_DIR / "manifest.json"
+
+
             # Test _sha256 with larger file (multi-chunk)
             large_test_file = scratch / "sha256_large_file.txt"
             # 65536 is chunk size, let's make it 65536 + 10 bytes

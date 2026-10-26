@@ -1625,6 +1625,46 @@ def cmd_selftest() -> int:
             )
             _sg.snapshot(refresh=True)
             check("accept-live refreshes canonical after an edit", _sg.verify() == [])
+
+            # Test _sha256 function
+            import hashlib
+            sha_test_file = scratch / "sha256_test_file.txt"
+            test_content = b"hello world"
+            sha_test_file.write_bytes(test_content)
+            expected_hash = hashlib.sha256(test_content).hexdigest()
+            actual_hash = _sg._sha256(sha_test_file)
+            check(
+                "skills guardian _sha256 computes correctly",
+                expected_hash == actual_hash,
+                f"expected {expected_hash}, got {actual_hash}"
+            )
+            # Test _sha256 with empty file
+            empty_test_file = scratch / "sha256_empty_file.txt"
+            empty_test_file.write_bytes(b"")
+            expected_empty_hash = hashlib.sha256(b"").hexdigest()
+            actual_empty_hash = _sg._sha256(empty_test_file)
+            check(
+                "skills guardian _sha256 handles empty file",
+                expected_empty_hash == actual_empty_hash,
+                f"expected {expected_empty_hash}, got {actual_empty_hash}"
+            )
+            empty_test_file.unlink()
+
+            # Test _sha256 with larger file (multi-chunk)
+            large_test_file = scratch / "sha256_large_file.txt"
+            # 65536 is chunk size, let's make it 65536 + 10 bytes
+            large_content = b"a" * (65536 + 10)
+            large_test_file.write_bytes(large_content)
+            expected_large_hash = hashlib.sha256(large_content).hexdigest()
+            actual_large_hash = _sg._sha256(large_test_file)
+            check(
+                "skills guardian _sha256 handles multi-chunk file",
+                expected_large_hash == actual_large_hash,
+                f"expected {expected_large_hash}, got {actual_large_hash}"
+            )
+            large_test_file.unlink()
+
+            sha_test_file.unlink()
         finally:
             _sg.SKILLS_DIR, _sg.CANONICAL_DIR, _sg.MANIFEST_PATH = (
                 live_skills_dir,

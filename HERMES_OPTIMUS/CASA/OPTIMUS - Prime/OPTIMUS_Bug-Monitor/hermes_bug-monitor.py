@@ -1638,6 +1638,18 @@ def cmd_selftest() -> int:
                 expected_hash == actual_hash,
                 f"expected {expected_hash}, got {actual_hash}"
             )
+
+            # Additional happy path test with explicit known content and hardcoded expected hash
+            explicit_sha_file = scratch / "sha256_explicit_test.txt"
+            explicit_sha_file.write_bytes(b"This is a known content string for testing _sha256.")
+            explicit_actual_hash = _sg._sha256(explicit_sha_file)
+            check(
+                "skills guardian _sha256 computes explicitly known hash",
+                "8fd75f1cfb4cb4d8ef923f5006e0a335a00f729ecf951ef6104878bf206f13b9" == explicit_actual_hash,
+                f"expected 8fd75f1cfb4cb4d8ef923f5006e0a335a00f729ecf951ef6104878bf206f13b9, got {explicit_actual_hash}"
+            )
+            explicit_sha_file.unlink()
+
             # Test _sha256 with empty file
             empty_test_file = scratch / "sha256_empty_file.txt"
             empty_test_file.write_bytes(b"")
@@ -1663,6 +1675,25 @@ def cmd_selftest() -> int:
                 f"expected {expected_large_hash}, got {actual_large_hash}"
             )
             large_test_file.unlink()
+            # Test _sha256 with non-existent file
+            missing_file = scratch / "sha256_missing_file.txt"
+            try:
+                _sg._sha256(missing_file)
+                missing_raised = False
+            except FileNotFoundError:
+                missing_raised = True
+            check("skills guardian _sha256 raises FileNotFoundError for missing file", missing_raised)
+
+            # Test _sha256 with directory
+            dir_file = scratch / "sha256_dir"
+            dir_file.mkdir(exist_ok=True)
+            try:
+                _sg._sha256(dir_file)
+                dir_raised = False
+            except (IsADirectoryError, PermissionError):
+                dir_raised = True
+            check("skills guardian _sha256 raises Error for directory", dir_raised)
+
 
             sha_test_file.unlink()
         finally:

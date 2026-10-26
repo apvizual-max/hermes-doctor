@@ -69,7 +69,7 @@ PID_FILE = STATE_DIR / "monitor.pid"
 LOCK_FILE = STATE_DIR / "monitor.lock"
 POPUP_PS1 = BM_ROOT / "popup_alert.ps1"
 
-HERMES_HOME = Path(os.environ.get("HERMES_HOME") or Path(__file__).parent.parent.parent.parent.parent.resolve())
+HERMES_HOME = Path(os.environ.get("HERMES_HOME") or Path("~").expanduser() / "AppData" / "Local" / "hermes")
 HERMES_SRC = HERMES_HOME / "hermes-agent"
 
 MAX_LOG_ENTRIES = 50

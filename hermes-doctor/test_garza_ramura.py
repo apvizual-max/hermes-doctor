@@ -12,7 +12,8 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-DOCTOR = Path(__file__).parent.resolve()
+import os
+DOCTOR = Path(os.environ.get("HERMES_DOCTOR_DIR", Path(__file__).parent.resolve()))
 PS = shutil.which("pwsh") or "powershell"
 
 def git(repo, *args):

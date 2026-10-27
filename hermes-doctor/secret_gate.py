@@ -13,7 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-HOME = Path(__file__).parent.parent.resolve()
+import os
+HOME = Path(os.environ.get("HERMES_HOME", Path(__file__).parent.parent)).resolve()
 
 # name -> regex. Order matters only for reporting.
 PATTERNS = {

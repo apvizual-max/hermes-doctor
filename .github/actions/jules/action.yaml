@@ -52,6 +52,11 @@ inputs:
     required: false
     type: string
     default: 'false'
+  max_concurrent_sessions:
+    description: 'Maximum number of open Jules sessions allowed at the same time'
+    required: false
+    type: string
+    default: '15'
 
 runs:
   using: "composite"
@@ -125,14 +130,96 @@ runs:
           }' > jules_payload.json
         echo "jules_payload.json is $(wc -c < jules_payload.json) bytes"
 
+    # PLATFORM - the concurrency budget.
+    #
+    # MEASURED 2026-10-29 (Popy's rule, and the measurement behind it): Jules
+    # holds at most 15 tasks at the same time. Beyond that he starts failing
+    # and stops answering. On this account there were 17 open sessions
+    # (IN_PROGRESS + AWAITING_USER_FEEDBACK) before this guard existed - over
+    # the limit, which is exactly when he goes silent.
+    #
+    # The guard lives HERE, in the action, on purpose. The action is the only
+    # place where a Jules session is created, so this is the only place where
+    # the limit can be enforced without depending on anybody remembering to
+    # check first. A trigger cannot bypass it, and a manual dispatch cannot
+    # bypass it.
+    #
+    # It is a NOTICE and not a failure: the request was legitimate, it just
+    # does not fit in the budget right now. The run stays green and says why.
+    - name: Concurrency budget
+      id: budget
+      shell: bash
+      env:
+        JULES_API_KEY: ${{ inputs.jules_api_key }}
+        MAX_CONCURRENT: ${{ inputs.max_concurrent_sessions }}
+      run: |
+        set -uo pipefail
+        : > sessions_all.jsonl
+        page_token=""
+        pages=0
+        while [ "$pages" -lt 10 ]; do
+          pages=$((pages + 1))
+          url='https://jules.googleapis.com/v1alpha/sessions?pageSize=100'
+          if [ -n "$page_token" ]; then url="${url}&pageToken=${page_token}"; fi
+          code=$(curl --silent --show-error "$url" \
+            -H "X-Goog-Api-Key: $JULES_API_KEY" \
+            -o page.json -w '%{http_code}' || true)
+          if [ "$code" != "200" ]; then
+            echo "::warning::Nu pot citi lista de sesiuni (HTTP $code). Continui fara poarta de buget - plafonul nu poate fi masurat aici."
+            break
+          fi
+          jq -c '.sessions // []' page.json >> sessions_all.jsonl
+          page_token=$(jq -r '.nextPageToken // empty' page.json)
+          if [ -z "$page_token" ]; then break; fi
+        done
+        open=$(jq -s '[.[][] | select(.state == "IN_PROGRESS" or .state == "AWAITING_USER_FEEDBACK")] | length' sessions_all.jsonl 2>/dev/null || echo 0)
+        echo "Sesiuni Jules deschise (IN_PROGRESS + AWAITING_USER_FEEDBACK): $open / plafon $MAX_CONCURRENT"
+        if [ "$open" -ge "$MAX_CONCURRENT" ]; then
+          echo "::notice::Plafonul Jules de $MAX_CONCURRENT taskuri simultane este atins ($open deschise). Nu creez o sesiune noua - cererea ramane in asteptare si va fi reluata cand se elibereaza bugetul."
+          echo "budget_exceeded=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "budget_exceeded=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Invoke Jules
+      if: steps.budget.outputs.budget_exceeded != 'true'
       shell: bash
       env:
         JULES_API_KEY: ${{ inputs.jules_api_key }}
       run: |
-        set -euo pipefail
-        curl 'https://jules.googleapis.com/v1alpha/sessions' \
+        set -uo pipefail
+        # MEASURED 2026-10-29: curl fara verificarea codului HTTP face runul
+        # VERDE chiar cand API-ul REFUZA sesiunea. Doua run-uri au raspuns
+        # HTTP 400 "Precondition check failed" (FAILED_PRECONDITION) si au
+        # fost raportate ca success - deci lista de runuri arata ca Jules a
+        # primit taskul, cand de fapt nu l-a primit. Un zero fals e defect,
+        # nu succes.
+        #
+        # Codul HTTP se citeste explicit, cu -w, in loc de --fail-with-body:
+        # asa corpul raspunsului poate fi aratat in log, si o eroare de
+        # conexiune (cod gol) nu se confunda cu un refuz al serverului.
+        http_code=$(curl --silent --show-error \
+          'https://jules.googleapis.com/v1alpha/sessions' \
           -X POST \
           -H "Content-Type: application/json" \
           -H "X-Goog-Api-Key: $JULES_API_KEY" \
-          -d @jules_payload.json
+          -d @jules_payload.json \
+          -o jules_response.json \
+          -w '%{http_code}' || true)
+        if [ -z "$http_code" ]; then
+          echo "::error::Nu am primit niciun cod HTTP de la API-ul Jules. Raspunsul:"
+          cat jules_response.json 2>/dev/null || echo "(fara corp)"
+          exit 1
+        fi
+        if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+          echo "::error::Jules a refuzat sesiunea (HTTP $http_code). Raspunsul API-ului:"
+          cat jules_response.json 2>/dev/null || echo "(fara corp)"
+          exit 1
+        fi
+        session_name=$(jq -r '.name // empty' jules_response.json 2>/dev/null || true)
+        if [ -z "$session_name" ]; then
+          echo "::error::Raspuns HTTP $http_code, dar fara nume de sesiune. Raspunsul:"
+          cat jules_response.json
+          exit 1
+        fi
+        echo "HTTP $http_code - sesiune Jules creata: $session_name"

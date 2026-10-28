@@ -2,26 +2,29 @@ name: Invoke Jules
 
 # MECANISM GENERAL - identical in every repo of the fleet.
 #
-# Jules joins our process on EVERY push, not only on request:
-#   1. push to the default branch  -> review the diff, run the checks, propose
-#   2. issue labelled 'jules'      -> new task, context travels in the body
-#   3. comment containing '@jules' -> new task, in the discussion context
-#   4. workflow_dispatch           -> manual task
-#   5. weekly cron                 -> audit only, no implementation
+# CORRECTION 2026-10-29 (Popy, masurat): Jules does NOT join on every push
+# any more. He holds at most 15 tasks at the same time; beyond that he
+# starts failing and stops answering. On this account there were 17 open
+# sessions before the budget guard existed - over the limit, which is when
+# he goes silent. So the triggers are only the ones a human means:
+#   1. workflow_dispatch           -> manual, explicit task
+#   2. comment containing '@jules' -> explicit request in a discussion
+#   3. issue labelled 'jules'      -> explicit request with its context
+#
+# The push trigger and the weekly cron are GONE on purpose: the cron fired
+# on all 11 repositories of the fleet in the same minute, which is a flood
+# by construction, and every push consumed one of the 15 slots.
+# The budget itself is enforced in .github/actions/jules - the only place
+# where a session is created - so no trigger can get past it.
 #
 # AUTHORITY (JULES-CONTEXT.md): Jules proposes, Local decides. Pull request
 # only, never a direct push to the default branch. No approval prompts:
 # work, measure, open the PR. A stop comes only from a project rule,
 # never from a missing human OK.
-#
-# QUOTA: Jules allows 100 tasks/day. Every push consumes one, so the push
-# trigger is limited to the default branch and runs do not overlap.
 
 on:
-  push:
-    branches: [main, master]
   issues:
-    types: [opened, labeled, reopened]
+    types: [labeled]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -30,8 +33,6 @@ on:
         description: 'Instruction for Jules'
         required: true
         default: 'Read JULES-CONTEXT.md, then report the state of this repository. Do not build anything until you receive a concrete task.'
-  schedule:
-    - cron: '0 9 * * 0'
 
 permissions:
   contents: write
@@ -41,7 +42,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: jules-${{ github.repository }}-${{ github.ref }}
+  group: jules-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -52,7 +53,6 @@ jobs:
       # GARD 1 - the secret must exist, otherwise the workflow burns quota
       # without sending anything to Jules. The action does its own checkout.
       - name: Guard - secret present
-        if: github.event_name != 'schedule'
         env:
           KEY: ${{ secrets.JULES_API_KEY }}
         run: |
@@ -105,52 +105,13 @@ jobs:
         with:
           fetch-depth: 30
 
-      # PAS 1 - PUSH: the continuous participation in our process.
-      - name: Review on push
-        if: github.event_name == 'push'
-        uses: ./.github/actions/jules
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          starting_branch: ${{ github.event.repository.default_branch }}
-          include_last_commit: false
-          include_commit_log: false
-          prompt: |
-            @jules - you were activated by a push to the default branch.
-            The pushed diff is NOT in your context. Read it yourself in the
-            checkout: `git show HEAD`, and the recent history with
-            `git log -20 --stat`.
-
-            1. Read AGENTS.md and JULES-CONTEXT.md if they exist in this
-               repository, BEFORE anything else. They carry the project rules,
-               the invariants and the mandatory report format. If neither
-               exists, follow the rules in this prompt.
-            2. Review the pushed change: what it actually changes, whether it
-               breaks an invariant, whether the verification commands still
-               pass, and whether it leaves the repository in a state a human
-               could trust.
-            3. Run the repository's own verification - the commands stated in
-               AGENTS.md, JULES-CONTEXT.md or README. Report the REAL output
-               and the REAL exit code. If a check fails, name it and stop
-               there. Do not hide it and do not continue past it.
-            4. Judge the change explicitly: is this the better solution, or is
-               there a simpler, more robust, safer or cheaper one? Say which
-               one, and why, with numbers.
-            5. If there is a concrete improvement, implement it and open a
-               PULL REQUEST. Never push to the default branch.
-            6. If nothing needs changing, do NOT open a PR. Write a short
-               verdict comment on the pushed commit instead:
-               "VERDICT: nothing to repair. Checks: <what you ran>".
-            7. Use the report format from JULES-CONTEXT.md.
-
-            Do not ask for approval and do not wait for a human. Work, measure,
-            open the PR. Stop only when a project rule forbids the action.
-
-      # PAS 2 - issue labelled 'jules': a new task with its full context.
+      # PAS 1 - issue labelled 'jules': a new task with its full context.
       - name: Task from the jules label
-        if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'jules')
+        if: contains(github.event.issue.labels.*.name, 'jules')
         uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
+          max_concurrent_sessions: '15'
           prompt: |
             @jules - new task. The issue body carries the full context; read
             it entirely, do not skip it.
@@ -168,12 +129,13 @@ jobs:
             push to the default branch. Measure before you declare. If a
             verification fails, say which one and why.
 
-      # PAS 3 - a comment with @jules: a new task, in the discussion context.
+      # PAS 2 - a comment with @jules: a new task, in the discussion context.
       - name: Task from an @jules comment
         if: github.event_name == 'issue_comment' && steps.mention.outputs.hit == 'true'
         uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
+          max_concurrent_sessions: '15'
           prompt: |
             @jules - new task, requested in a comment.
 
@@ -192,12 +154,13 @@ jobs:
             Open a pull request, never push to the default branch. Measure
             before you declare.
 
-      # PAS 4 - manual invocation, with an instruction chosen by the caller.
+      # PAS 3 - manual invocation, with an instruction chosen by the caller.
       - name: Manual task
         if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
+          max_concurrent_sessions: '15'
           prompt: |
             @jules - manual task.
 
@@ -208,19 +171,3 @@ jobs:
 
             Task:
             ${{ inputs.sarcina }}
-
-      # PAS 5 - weekly sweep: audit, not implementation.
-      - name: Weekly audit
-        if: github.event_name == 'schedule'
-        uses: ./.github/actions/jules
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          prompt: |
-            @jules - weekly audit. Do NOT build anything.
-            1. Run the repository's full verification and report what fails.
-            2. Look for secrets committed in the history.
-            3. Look for generated files, build artifacts or vendored
-               dependencies that were committed.
-            4. Write the report in docs/ and open a pull request with it.
-            If everything is green, write only "nothing to repair" and do not
-            open a pull request.

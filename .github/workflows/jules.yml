@@ -1,0 +1,197 @@
+name: Invoke Jules
+
+# MECANISM GENERAL - identical in every repo of the fleet.
+#
+# Jules joins our process on EVERY push, not only on request:
+#   1. push to the default branch  -> review the diff, run the checks, propose
+#   2. issue labelled 'jules'      -> new task, context travels in the body
+#   3. comment containing '@jules' -> new task, in the discussion context
+#   4. workflow_dispatch           -> manual task
+#   5. weekly cron                 -> audit only, no implementation
+#
+# AUTHORITY (JULES-CONTEXT.md): Jules proposes, Local decides. Pull request
+# only, never a direct push to the default branch. No approval prompts:
+# work, measure, open the PR. A stop comes only from a project rule,
+# never from a missing human OK.
+#
+# QUOTA: Jules allows 100 tasks/day. Every push consumes one, so the push
+# trigger is limited to the default branch and runs do not overlap.
+
+on:
+  push:
+    branches: [main, master]
+  issues:
+    types: [opened, labeled, reopened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      sarcina:
+        description: 'Instruction for Jules'
+        required: true
+        default: 'Read JULES-CONTEXT.md, then report the state of this repository. Do not build anything until you receive a concrete task.'
+  schedule:
+    - cron: '0 9 * * 0'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: write
+  statuses: write
+
+concurrency:
+  group: jules-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  jules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      # GARD 1 - the secret must exist, otherwise the workflow burns quota
+      # without sending anything to Jules. The action does its own checkout.
+      - name: Guard - secret present
+        if: github.event_name != 'schedule'
+        env:
+          KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::JULES_API_KEY is missing. Nothing is sent to Jules."
+            exit 1
+          fi
+          echo "secret present"
+
+      # DETECTION - a comment activates Jules only when it really contains
+      # @jules (case-insensitive) and only when it comes from the repo owner.
+      # A stranger must never be able to spend our quota.
+      - name: Detect @jules mention
+        id: mention
+        if: github.event_name == 'issue_comment'
+        env:
+          BODY: ${{ github.event.comment.body }}
+          WHO: ${{ github.event.comment.user.login }}
+        run: |
+          if echo "$BODY" | grep -qi '@jules' && [ "$WHO" = "apvizual-max" ]; then
+            echo "hit=true" >> $GITHUB_OUTPUT
+          else
+            echo "hit=false" >> $GITHUB_OUTPUT
+          fi
+
+      # PAS 1 - PUSH: the continuous participation in our process.
+      - name: Review on push
+        if: github.event_name == 'push'
+        uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          starting_branch: ${{ github.event.repository.default_branch }}
+          include_last_commit: true
+          include_commit_log: true
+          prompt: |
+            @jules - you were activated by a push to the default branch.
+            The pushed diff and the recent commit log are already in your context.
+
+            1. Read AGENTS.md and JULES-CONTEXT.md if they exist in this
+               repository, BEFORE anything else. They carry the project rules,
+               the invariants and the mandatory report format. If neither
+               exists, follow the rules in this prompt.
+            2. Review the pushed change: what it actually changes, whether it
+               breaks an invariant, whether the verification commands still
+               pass, and whether it leaves the repository in a state a human
+               could trust.
+            3. Run the repository's own verification - the commands stated in
+               AGENTS.md, JULES-CONTEXT.md or README. Report the REAL output
+               and the REAL exit code. If a check fails, name it and stop
+               there. Do not hide it and do not continue past it.
+            4. Judge the change explicitly: is this the better solution, or is
+               there a simpler, more robust, safer or cheaper one? Say which
+               one, and why, with numbers.
+            5. If there is a concrete improvement, implement it and open a
+               PULL REQUEST. Never push to the default branch.
+            6. If nothing needs changing, do NOT open a PR. Write a short
+               verdict comment on the pushed commit instead:
+               "VERDICT: nothing to repair. Checks: <what you ran>".
+            7. Use the report format from JULES-CONTEXT.md.
+
+            Do not ask for approval and do not wait for a human. Work, measure,
+            open the PR. Stop only when a project rule forbids the action.
+
+      # PAS 2 - issue labelled 'jules': a new task with its full context.
+      - name: Task from the jules label
+        if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'jules')
+        uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            @jules - new task. The issue body carries the full context; read
+            it entirely, do not skip it.
+
+            Read AGENTS.md and JULES-CONTEXT.md if they exist in this repository,
+            first. They carry the project rules, the invariants and the
+            mandatory report format. If neither exists, follow the rules in
+            this prompt and the standard agent contract.
+
+            Issue title: ${{ github.event.issue.title }}
+            Issue body:
+            ${{ github.event.issue.body }}
+
+            Work on the branch named in the issue. Open a pull request, never
+            push to the default branch. Measure before you declare. If a
+            verification fails, say which one and why.
+
+      # PAS 3 - a comment with @jules: a new task, in the discussion context.
+      - name: Task from an @jules comment
+        if: github.event_name == 'issue_comment' && steps.mention.outputs.hit == 'true'
+        uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            @jules - new task, requested in a comment.
+
+            Read AGENTS.md and JULES-CONTEXT.md if they exist in this repository,
+            first. They carry the project rules, the invariants and the
+            mandatory report format. If neither exists, follow the rules in
+            this prompt and the standard agent contract.
+
+            Comment that requested the work:
+            ${{ github.event.comment.body }}
+
+            Issue title: ${{ github.event.issue.title }}
+            Issue body:
+            ${{ github.event.issue.body }}
+
+            Open a pull request, never push to the default branch. Measure
+            before you declare.
+
+      # PAS 4 - manual invocation, with an instruction chosen by the caller.
+      - name: Manual task
+        if: github.event_name == 'workflow_dispatch'
+        uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            @jules - manual task.
+
+            Read AGENTS.md and JULES-CONTEXT.md if they exist in this repository,
+            first. They carry the project rules, the invariants and the
+            mandatory report format. If neither exists, follow the rules in
+            this prompt and the standard agent contract.
+
+            Task:
+            ${{ inputs.sarcina }}
+
+      # PAS 5 - weekly sweep: audit, not implementation.
+      - name: Weekly audit
+        if: github.event_name == 'schedule'
+        uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            @jules - weekly audit. Do NOT build anything.
+            1. Run the repository's full verification and report what fails.
+            2. Look for secrets committed in the history.
+            3. Look for generated files, build artifacts or vendored
+               dependencies that were committed.
+            4. Write the report in docs/ and open a pull request with it.
+            If everything is green, write only "nothing to repair" and do not
+            open a pull request.

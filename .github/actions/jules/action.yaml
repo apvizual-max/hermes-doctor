@@ -1,0 +1,138 @@
+name: Jules Invoke (local)
+description: >
+  Calls the Jules API the way google-labs-code/jules-action@v1.0.0 does, with
+  one difference that matters: the payload is assembled with `jq --rawfile`, so
+  the prompt is read from a FILE instead of being passed as a command line
+  argument.
+
+# WHY THIS EXISTS HERE (measured 2026-10-28, in this repository)
+#
+# The upstream action assembles prompt.txt and then runs
+#
+#   jq -n --arg jules_prompt "$(cat prompt.txt)" ...
+#
+# which puts the whole prompt on the command line. Linux caps a single argument
+# at 128 KiB (MAX_ARG_STRLEN), so a larger prompt kills the step with
+# "/usr/bin/jq: Argument list too long" (exit 126) - and the review never
+# starts. Measured here: the diff of a commit reaches 347,861 characters and
+# the log 56,990, so the review failed on EVERY push, twice in a row, with the
+# same line.
+#
+# The upstream action cannot even be switched off: it gates the inlining with
+# `if: ${{ inputs.include_last_commit }}`, and in a composite action that
+# value is the STRING "false", which a GitHub expression reads as true. The
+# log of the failed run shows the input echoed as false and the step running
+# anyway.
+#
+# Here the prompt is read from a file, so its size is not the payload's
+# problem, and whatever gets inlined is bounded and says so - including where
+# the whole thing can be read.
+
+inputs:
+  prompt:
+    description: 'The prompt to pass to Jules'
+    required: true
+    type: string
+  jules_api_key:
+    description: 'The Jules API key to use for authentication'
+    required: true
+    type: string
+  starting_branch:
+    description: 'The branch for Jules to start from'
+    required: false
+    type: string
+    default: 'main'
+  include_last_commit:
+    description: 'Whether to inline the last commit (bounded, and it says so)'
+    required: false
+    type: string
+    default: 'false'
+  include_commit_log:
+    description: 'Whether to inline the recent history (bounded, and it says so)'
+    required: false
+    type: string
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    # The repository is checked out by the JOB, before this action is
+    # resolved: a local action is read from the workspace, so a checkout
+    # inside the action would come too late. Measured 2026-10-28: the run
+    # failed in 8 seconds with "Can't find 'action.yml', 'action.yaml' or
+    # 'Dockerfile' under .../.github/actions/jules".
+
+    - name: Create the prompt
+      shell: bash
+      env:
+        USER_PROMPT: ${{ inputs.prompt }}
+        INCLUDE_LAST_COMMIT: ${{ inputs.include_last_commit }}
+        INCLUDE_COMMIT_LOG: ${{ inputs.include_commit_log }}
+      run: |
+        set -euo pipefail
+        # The bounds. A prompt that is cut says so, and says where the whole
+        # thing is: Jules has the checkout, so it can read it without us
+        # carrying it across the API.
+        DIFF_LIMIT=60000
+        LOG_LIMIT=20000
+        : > diff.txt
+        : > log.txt
+        {
+          printf '%s\n' "$USER_PROMPT"
+          if [ "$INCLUDE_LAST_COMMIT" = "true" ]; then
+            git show HEAD > diff.txt 2>/dev/null || true
+            size=$(wc -c < diff.txt)
+            echo
+            echo "Pushed commit (git show HEAD, first ${DIFF_LIMIT} of ${size} bytes):"
+            head -c "$DIFF_LIMIT" diff.txt
+            if [ "$size" -gt "$DIFF_LIMIT" ]; then
+              echo
+              echo "[truncated: ${size} bytes in total; read it whole with 'git show HEAD' in the checkout]"
+            fi
+          fi
+          if [ "$INCLUDE_COMMIT_LOG" = "true" ]; then
+            git log -20 --stat > log.txt 2>/dev/null || true
+            size=$(wc -c < log.txt)
+            echo
+            echo "Recent history (git log -20 --stat, first ${LOG_LIMIT} of ${size} bytes):"
+            head -c "$LOG_LIMIT" log.txt
+            if [ "$size" -gt "$LOG_LIMIT" ]; then
+              echo
+              echo "[truncated: ${size} bytes in total; read it whole with 'git log -20 --stat' in the checkout]"
+            fi
+          fi
+        } > prompt.txt
+        echo "prompt.txt is $(wc -c < prompt.txt) bytes"
+
+    - name: Assemble the Jules payload
+      shell: bash
+      run: |
+        set -euo pipefail
+        # --rawfile reads the prompt from the FILE. No argument, no argv limit,
+        # no 128 KiB cliff.
+        jq -n --rawfile jules_prompt prompt.txt \
+              --arg starting_branch "${{ inputs.starting_branch }}" \
+              --arg repo_full_name "${{ github.repository }}" '{
+            "prompt": $jules_prompt,
+            "sourceContext": {
+              "source": "sources/github/\($repo_full_name)",
+              "githubRepoContext": {
+                "startingBranch": $starting_branch
+              }
+            },
+            "requirePlanApproval": false,
+            "automationMode": "AUTO_CREATE_PR"
+          }' > jules_payload.json
+        echo "jules_payload.json is $(wc -c < jules_payload.json) bytes"
+
+    - name: Invoke Jules
+      shell: bash
+      env:
+        JULES_API_KEY: ${{ inputs.jules_api_key }}
+      run: |
+        set -euo pipefail
+        curl 'https://jules.googleapis.com/v1alpha/sessions' \
+          -X POST \
+          -H "Content-Type: application/json" \
+          -H "X-Goog-Api-Key: $JULES_API_KEY" \
+          -d @jules_payload.json

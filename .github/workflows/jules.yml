@@ -78,18 +78,47 @@ jobs:
             echo "hit=false" >> $GITHUB_OUTPUT
           fi
 
+      # The action is the LOCAL one at .github/actions/jules, not
+      # google-labs-code/jules-action@v1.0.0. Reason, measured 2026-10-28 in
+      # this fleet: the upstream action hands its prompt to jq as a
+      # command-line argument, and Linux caps a single argument at 128 KiB
+      # (MAX_ARG_STRLEN). A larger prompt kills the step with
+      # "/usr/bin/jq: Argument list too long" (exit 126) - and the review never
+      # starts. Measured on the fleet: 4 runs failed on exactly that line, so
+      # on those pushes Jules was never invoked at all and the run only LOOKED
+      # like it worked. The upstream action cannot even be switched off:
+      # `if: ${{ inputs.include_last_commit }}` reads the STRING "false" in a
+      # composite action, and a GitHub expression reads any non-empty string as
+      # true - the log shows the input echoed as false and the step running
+      # anyway. The local action reads the prompt from a FILE (jq --rawfile),
+      # so there is no argument to overflow, and whatever it inlines is
+      # bounded and says where the whole thing can be read.
+      #
+      # A local action is read FROM THE WORKSPACE, so the repository has to be
+      # checked out before a step that uses it. Measured 2026-10-28: with the
+      # checkout inside the action, the run failed in 8 seconds with
+      # "Can't find 'action.yml', 'action.yaml' or 'Dockerfile' under
+      # .../.github/actions/jules". The runner resolves the action before its
+      # own first step can run.
+      - name: Checkout the repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 30
+
       # PAS 1 - PUSH: the continuous participation in our process.
       - name: Review on push
         if: github.event_name == 'push'
-        uses: google-labs-code/jules-action@v1.0.0
+        uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           starting_branch: ${{ github.event.repository.default_branch }}
-          include_last_commit: true
-          include_commit_log: true
+          include_last_commit: false
+          include_commit_log: false
           prompt: |
             @jules - you were activated by a push to the default branch.
-            The pushed diff and the recent commit log are already in your context.
+            The pushed diff is NOT in your context. Read it yourself in the
+            checkout: `git show HEAD`, and the recent history with
+            `git log -20 --stat`.
 
             1. Read AGENTS.md and JULES-CONTEXT.md if they exist in this
                repository, BEFORE anything else. They carry the project rules,
@@ -119,7 +148,7 @@ jobs:
       # PAS 2 - issue labelled 'jules': a new task with its full context.
       - name: Task from the jules label
         if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'jules')
-        uses: google-labs-code/jules-action@v1.0.0
+        uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
@@ -142,7 +171,7 @@ jobs:
       # PAS 3 - a comment with @jules: a new task, in the discussion context.
       - name: Task from an @jules comment
         if: github.event_name == 'issue_comment' && steps.mention.outputs.hit == 'true'
-        uses: google-labs-code/jules-action@v1.0.0
+        uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
@@ -166,7 +195,7 @@ jobs:
       # PAS 4 - manual invocation, with an instruction chosen by the caller.
       - name: Manual task
         if: github.event_name == 'workflow_dispatch'
-        uses: google-labs-code/jules-action@v1.0.0
+        uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
@@ -183,7 +212,7 @@ jobs:
       # PAS 5 - weekly sweep: audit, not implementation.
       - name: Weekly audit
         if: github.event_name == 'schedule'
-        uses: google-labs-code/jules-action@v1.0.0
+        uses: ./.github/actions/jules
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
